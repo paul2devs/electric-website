@@ -43,10 +43,7 @@ async function bootstrap() {
         return;
       }
 
-      if (
-        process.env.VERCEL === "1" &&
-        normalized.endsWith(".vercel.app")
-      ) {
+      if (normalized.endsWith(".vercel.app")) {
         callback(null, true);
         return;
       }

@@ -30,17 +30,13 @@ export function shouldEnableRealtimeGateway(): boolean {
   return !isServerlessRuntime();
 }
 
+/** Only set when explicitly configured. Render deploys routes at root (e.g. /auth/login). */
 export function getApiRoutePrefix(): string | undefined {
   const explicit = process.env.API_ROUTE_PREFIX?.trim();
-  if (explicit) {
-    return explicit.replace(/^\/+|\/+$/g, "");
+  if (!explicit) {
+    return undefined;
   }
-
-  if (isVercelRuntime()) {
-    return "_/backend";
-  }
-
-  return undefined;
+  return explicit.replace(/^\/+|\/+$/g, "");
 }
 
 export function getFrontendOrigins(): string[] {

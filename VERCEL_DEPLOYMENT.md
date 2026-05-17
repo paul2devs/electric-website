@@ -1,88 +1,62 @@
-# Vercel production deployment
+# Frontend (Vercel) + Backend (Render)
 
-Monorepo: Next.js (`/`) + NestJS (`/_/backend`) via **Vercel Services**.
+The **API runs on Render only**. Vercel hosts the Next.js frontend. Do not use `/_/backend` or Vercel Services for the API.
 
-## Required: project framework = Services
+## Why login was 404
 
-In **Vercel → Project → Settings → General → Framework Preset**, choose **Services** (not plain Next.js).
+The client called `https://<vercel-app>/_/backend/auth/login` because:
 
-`vercel.json` must contain `experimentalServices` (see repo root). If the preset is only Next.js, deploy can fail with a generic CLI error.
+1. `lib/constants/api.ts` used a **`VERCEL=1` fallback** to `/_/backend`.
+2. **`NEXT_PUBLIC_BACKEND_URL`** (relative) was resolved against the Vercel origin.
+3. **`vercel.json` rewrites** still pointed at a removed Vercel backend.
 
-## Configuration (`vercel.json`)
+Those paths are removed. The app only uses **`NEXT_PUBLIC_API_URL`** → your Render URL.
 
-- **frontend** — repo root, Next.js, `/`
-- **backend** — `backend/`, NestJS, `/_/backend`
-- Do **not** add `backend/vercel.json` with `outputDirectory: dist` (breaks serverless detection).
-
-## Environment variables (Production)
-
-### Frontend
+## Vercel (frontend) — required env
 
 | Variable | Example |
 |----------|---------|
-| `NEXT_PUBLIC_APP_URL` | `https://your-domain.vercel.app` |
-| `NEXT_PUBLIC_API_URL` | `https://your-domain.vercel.app/_/backend` |
-| `NEXT_PUBLIC_REALTIME_ENABLED` | `false` |
+| `NEXT_PUBLIC_APP_URL` | `https://electric-site-three.vercel.app` |
+| `NEXT_PUBLIC_API_URL` | `https://your-api.onrender.com` |
 
-If `NEXT_PUBLIC_API_URL` is unset, Vercel Services injects `NEXT_PUBLIC_BACKEND_URL=/_/backend` and the app resolves it at runtime.
+**Do not set** `NEXT_PUBLIC_BACKEND_URL` or any value containing `/_/backend`.
 
-### Backend (same project)
+After changing env vars, **redeploy** (Production) so Next.js inlines new `NEXT_PUBLIC_*` values.
+
+## Render (backend) — required env
 
 | Variable | Example |
 |----------|---------|
-| `DATABASE_URL` | Neon PostgreSQL |
-| `REDIS_URL` | Upstash Redis |
-| `JWT_ACCESS_SECRET` | 32+ chars |
-| `JWT_REFRESH_SECRET` | 32+ chars |
-| `FRONTEND_ORIGIN` | `https://your-domain.vercel.app` |
+| `FRONTEND_ORIGIN` | `https://electric-site-three.vercel.app` |
+| `DATABASE_URL` | PostgreSQL |
+| `REDIS_URL` | Redis |
+| `JWT_ACCESS_SECRET` | secret |
+| `JWT_REFRESH_SECRET` | secret |
 | `COOKIE_SECURE` | `true` |
+| `PORT` | `10000` (or Render default) |
 
-**Never** use `localhost` in Production env vars.
+Do **not** set `API_ROUTE_PREFIX` unless you intentionally mount under a subpath. Routes are:
 
-## Do not deploy local `.env`
+- `POST /auth/login`
+- `POST /auth/refresh`
+- `GET /health`
 
-Use Vercel dashboard env only. `.vercelignore` excludes `.env` files from uploads.
-
-## Deploy
-
-```bash
-vercel pull --yes --environment=production   # first time / after dashboard changes
-vercel --prod
-```
-
-If you see `Unexpected error. Please try again later`:
-
-1. Confirm Framework Preset is **Services**.
-2. Update Vercel CLI: `npm i -g vercel@latest`
-3. Retry: `vercel --prod --debug` and check the last error line.
-4. In dashboard → Deployments → open failed deploy for build logs (CLI errors are often upload/config, not build).
-
-## Migrations
-
-```bash
-cd backend && npx prisma migrate deploy
-```
+CORS allows `FRONTEND_ORIGIN` and any `*.vercel.app` origin.
 
 ## Verify
 
-| Check | Expected |
-|-------|----------|
-| Health | `GET /_/backend/health` → `{ "ok": true, "database": true }` |
-| Login | `POST /_/backend/auth/login` (not localhost) |
-| Refresh | `POST /_/backend/auth/refresh` with cookies |
+1. `GET https://your-api.onrender.com/health`
+2. Login in browser → Network → `POST https://your-api.onrender.com/auth/login` (not Vercel, not `/_/backend`)
+3. `POST https://your-api.onrender.com/auth/refresh` with cookies
 
 ## Local dev
-
-```bash
-cd backend && npm run start:dev
-npm run dev
-```
-
-`.env.local`:
 
 ```env
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 NEXT_PUBLIC_API_URL=http://localhost:3001
 ```
 
-Or: `vercel dev -L`
+```bash
+cd backend && npm run start:dev
+npm run dev
+```
