@@ -1,0 +1,4 @@
+ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "slug" TEXT;
+ALTER TABLE "Service" ADD COLUMN IF NOT EXISTS "imageUrl" TEXT;
+
+CREATE UNIQUE INDEX IF NOT EXISTS "Service_slug_key" ON "Service"("slug");
